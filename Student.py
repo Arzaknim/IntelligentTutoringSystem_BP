@@ -1,8 +1,9 @@
-from Knowledge import Knowledge
+from MasterAgent import MasterAgent
+from PeriodicTable import PeriodicTable
 
 
 class Student:
 
-    def __init__(self):
-        self.knowledge = Knowledge()
-
+    def __init__(self, agent: MasterAgent):
+        # self.knowledge = Knowledge()
+        self.agent = agent
