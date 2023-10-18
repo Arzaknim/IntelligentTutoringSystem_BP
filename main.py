@@ -7,4 +7,4 @@ if __name__ == '__main__':
     # df = df.iloc[:, [1, 2]]
     # print(df)
     kn = Knowledge()
-    print(kn.halogens_dct)
+    print(kn.elements_dict)
