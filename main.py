@@ -1,11 +1,8 @@
+from BlockEnviroment import BlockEnvironment
 from PeriodicTable import PeriodicTable
-from MasterAgent import MasterAgent
+from Student import Student
 
 if __name__ == '__main__':
-    # df = pd.read_csv('periodic_table.csv')
-    # df = df.iloc[:, [1, 2]]
-    # print(df)
-    # print(kn.elements_dict)
-    # print(kn.knowledge_dct)
     pt = PeriodicTable()
-    ma = MasterAgent(pt)
+    student = Student(0.6, 0.2, 3, 1)
+    s_env = BlockEnvironment('S', pt.get_s_block_dct(), student)
