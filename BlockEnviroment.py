@@ -4,9 +4,10 @@ import random
 
 
 class BlockEnvironment(gym.Env):
-    def __init__(self, name, block_dict, student):
+    def __init__(self, name, block_dict, student, sim=True):
         self.name = name
         self.student = student
+        self.sim = sim
         # Actions we can take are show materials, test, quit
         self.action_space = gym.spaces.Discrete(3)
         # Grade 1 to 5 (1 is best performance, 5 is worst performance)
@@ -19,6 +20,7 @@ class BlockEnvironment(gym.Env):
 
     def step(self, action):
         reward = 0
+        change = False
         # shows materials
         if action == 0:
             self.learn()
@@ -26,7 +28,7 @@ class BlockEnvironment(gym.Env):
         elif action == 1:
             self.test()
         elif action == 2:
-            done = True
+            change = True
         old_state = self.state
         self.state = self.knowledge2observational()
         # Reduce shower length by 1 second
@@ -40,7 +42,7 @@ class BlockEnvironment(gym.Env):
             reward -= 20 * diff
 
         # Check if study_session is done
-        if self.study_length <= 0:
+        if self.study_length <= 0 or change:
             done = True
         else:
             done = False
@@ -112,33 +114,47 @@ class BlockEnvironment(gym.Env):
 
         return state
 
-    def learn(self, sim=True):
-        if sim:
+    def learn(self):
+        reward = 0
+        if self.sim:
             for symbol in self.knowledge_space.keys():
                 rn = random.random()
                 if self.knowledge_space[symbol] == 1:
                     if rn < self.student.forgetting_rate:
                         self.knowledge_space[symbol] = 0
-                else:
-                    if rn > self.student.learning_rate:
+                        reward -= 2
+                    else:
                         self.knowledge_space[symbol] = 1
+                        reward += 1
+                else:
+                    if rn < self.student.learning_rate:
+                        self.knowledge_space[symbol] = 1
+                        reward += 2
 
-        print(f'You should study the {self.name} block of the periodic table')
+        # print(f'You should study the {self.name} block of the periodic table')
 
     def test(self, sim=True):
-        lst = []
-        for symbol in self.knowledge_space.keys():
-            if self.knowledge_space[symbol] == 0:
-                lst = lst + [self.knowledge_space[symbol]]
-
+        lst = [x for x in self.knowledge_space.keys()]
         lst = random.choices(lst, k=3)
-        for i in range(3):
-            print(f"You should check the element {lst[i]}.")
+        # for i in range(3):
+            # print(f"You should check the element {lst[i]}.")
 
-        if sim:
+        reward = 0
+        if self.sim:
             for symbol in lst:
-                if random.random() < self.student.learning_rate:
-                    self.knowledge_space[symbol] = 1
+                if self.knowledge_space[symbol] == 0:
+                    if random.random() < self.student.learning_rate:
+                        self.knowledge_space[symbol] = 1
+                        reward += 2
+                    else:
+                        self.knowledge_space[symbol] = 0
+                        reward -= 2
                 else:
-                    self.knowledge_space[symbol] = 0
+                    if random.random() < self.student.learning_rate:
+                        self.knowledge_space[symbol] = 1
+                        reward += 1
+                    else:
+                        self.knowledge_space[symbol] = 0
+                        reward -= 3
 
+        return reward
