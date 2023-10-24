@@ -1,4 +1,5 @@
 import gymnasium as gym
+from gymnasium.spaces import Discrete
 import numpy as np
 import random
 
@@ -9,14 +10,14 @@ class BlockEnvironment(gym.Env):
         self.student = student
         self.sim = sim
         # Actions we can take are show materials, test, quit
-        self.action_space = gym.spaces.Discrete(3)
+        self.action_space = Discrete(3)
         # Grade 1 to 5 (1 is best performance, 5 is worst performance)
-        self.observation_space = gym.spaces.Discrete(5, start=1)
+        self.observation_space = Discrete(5, start=1)
         self.gt = block_dict
         self.knowledge_space = {}
         self.set_graded_knowledge(student.starting_mark)
         self.state = self.knowledge2observational()
-        self.study_length = 60
+        self.time_step = 5
 
     def step(self, action):
         reward = 0
