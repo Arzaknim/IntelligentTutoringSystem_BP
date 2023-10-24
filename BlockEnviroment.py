@@ -1,11 +1,10 @@
 import gymnasium as gym
 from gymnasium.spaces import Discrete
-import numpy as np
 import random
 
 
 class BlockEnvironment(gym.Env):
-    def __init__(self, name, block_dict, student, sim=True):
+    def __init__(self, name, block_dict, student, learning_strength, sim=True):
         self.name = name
         self.student = student
         self.sim = sim
@@ -18,6 +17,7 @@ class BlockEnvironment(gym.Env):
         self.set_graded_knowledge(student.starting_mark)
         self.state = self.knowledge2observational()
         self.time_step = 5
+        self.learning_strength = learning_strength
 
     def step(self, action):
         reward = 0
@@ -33,7 +33,7 @@ class BlockEnvironment(gym.Env):
         old_state = self.state
         self.state = self.knowledge2observational()
         # Reduce shower length by 1 second
-        self.study_length -= 1
+        self.time_step -= 1
 
         # Calculate reward
         diff = old_state - self.state
@@ -43,7 +43,7 @@ class BlockEnvironment(gym.Env):
             reward -= 20 * diff
 
         # Check if study_session is done
-        if self.study_length <= 0 or change:
+        if self.time_step <= 0 or change:
             done = True
         else:
             done = False
@@ -56,7 +56,7 @@ class BlockEnvironment(gym.Env):
     def reset(self, seed=None, options=None):
         self.set_graded_knowledge(self.student.starting_mark)
         self.state = self.knowledge2observational()
-        self.study_length = 60
+        self.time_step = 5
         return self.state
 
     def render(self):
@@ -128,18 +128,18 @@ class BlockEnvironment(gym.Env):
                         self.knowledge_space[symbol] = 1
                         reward += 1
                 else:
-                    if rn < self.student.learning_rate:
+                    if rn < self.student.learning_rate * self.learning_strength:
                         self.knowledge_space[symbol] = 1
                         reward += 2
 
-        # print(f'You should study the {self.name} block of the periodic table')
+        print(f'Learning session of the {self.name} block')
 
-    def test(self, sim=True):
+    def test(self):
         lst = [x for x in self.knowledge_space.keys()]
         lst = random.choices(lst, k=3)
-        # for i in range(3):
-            # print(f"You should check the element {lst[i]}.")
-
+        for i in range(3):
+            print(f"Test in the {self.name} block for the elements.")
+            print(*lst)
         reward = 0
         if self.sim:
             for symbol in lst:

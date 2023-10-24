@@ -1,11 +1,11 @@
-from BlockEnviroment import BlockEnvironment
 from MainEnvironment import MainEnvironment
 from PeriodicTable import PeriodicTable
 from Student import Student
 
 if __name__ == '__main__':
     pt = PeriodicTable()
-    student = Student(0.6, 0.2, 3, 1)
+    block_strength = [1, 1, 1, 1]
+    student = Student(0.6, 0.2, 3, 1, block_strength)
     env = MainEnvironment(pt, student)
 
     episodes = 100

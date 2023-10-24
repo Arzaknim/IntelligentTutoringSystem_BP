@@ -8,10 +8,14 @@ class MainEnvironment(gym.Env):
     def __init__(self, pt, student):
         self.pt = pt
         self.student = student
-        self.s_block_env = BlockEnvironment('S', pt.get_s_block_dct(), student)
-        self.p_block_env = BlockEnvironment('P', pt.get_p_block_dct(), student)
-        self.d_block_env = BlockEnvironment('D', pt.get_d_block_dct(), student)
-        self.f_block_env = BlockEnvironment('F', pt.get_f_block_dct(), student)
+        self.s_block_env = BlockEnvironment('S', self.pt.get_s_block_dct(),
+                                            self.student, self.student.block_strength[0])
+        self.p_block_env = BlockEnvironment('P', self.pt.get_p_block_dct(),
+                                            self.student, self.student.block_strength[1])
+        self.d_block_env = BlockEnvironment('D', self.pt.get_d_block_dct(),
+                                            self.student, self.student.block_strength[2])
+        self.f_block_env = BlockEnvironment('F', self.pt.get_f_block_dct(),
+                                            self.student, self.student.block_strength[3])
         self.action_space = Discrete(6)
         self.observation_space = Discrete(5)
         self.state = self.knowledge2observational()
@@ -29,18 +33,22 @@ class MainEnvironment(gym.Env):
             n_state, reward, done, info = self.d_block_env.step(action)
         elif action == 3:
             n_state, reward, done, info = self.f_block_env.step(action)
-        elif action == 4:
-            self.state = self.assessment()
+        # elif action == 4:
+        #     self.state = self.assessment()
         elif action == 5:
             self.done = True
 
         return self.state, reward, done, info
 
     def reset(self, seed=None, options=None):
-        self.s_block_env = BlockEnvironment('S', self.pt.get_s_block_dct(), self.student)
-        self.p_block_env = BlockEnvironment('P', self.pt.get_p_block_dct(), self.student)
-        self.d_block_env = BlockEnvironment('D', self.pt.get_d_block_dct(), self.student)
-        self.f_block_env = BlockEnvironment('F', self.pt.get_f_block_dct(), self.student)
+        self.s_block_env = BlockEnvironment('S', self.pt.get_s_block_dct(),
+                                            self.student, self.student.block_strength[0])
+        self.p_block_env = BlockEnvironment('P', self.pt.get_p_block_dct(),
+                                            self.student, self.student.block_strength[1])
+        self.d_block_env = BlockEnvironment('D', self.pt.get_d_block_dct(),
+                                            self.student, self.student.block_strength[2])
+        self.f_block_env = BlockEnvironment('F', self.pt.get_f_block_dct(),
+                                            self.student, self.student.block_strength[3])
         self.time_step = 20
         self.done = False
 
