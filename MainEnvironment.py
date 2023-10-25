@@ -20,23 +20,34 @@ class MainEnvironment(gym.Env):
         self.observation_space = Discrete(5)
         self.state = self.knowledge2observational()
         self.time_step = 60
-        self.done = False
 
     def step(self, action):
-        action = self.s_block_env.action_space.sample()
+        block_env_action = self.s_block_env.action_space.sample()
         reward = 0
+        info = ""
+        done = False
         if action == 0:
-            n_state, reward, done, info = self.s_block_env.step(action)
+            n_state, reward, done, info = self.s_block_env.step(block_env_action)
         elif action == 1:
-            n_state, reward, done, info = self.p_block_env.step(action)
+            n_state, reward, done, info = self.p_block_env.step(block_env_action)
         elif action == 2:
-            n_state, reward, done, info = self.d_block_env.step(action)
+            n_state, reward, done, info = self.d_block_env.step(block_env_action)
         elif action == 3:
-            n_state, reward, done, info = self.f_block_env.step(action)
-        # elif action == 4:
-        #     self.state = self.assessment()
+            n_state, reward, done, info = self.f_block_env.step(block_env_action)
+        elif action == 4:
+            old_state = self.state
+            self.state = self.assessment()
+            if self.state > old_state:
+                reward += (self.state - old_state) * 50
+            elif self.state < old_state:
+                reward -= (old_state - self.state) * 50
         elif action == 5:
-            self.done = True
+            done = True
+
+        if self.time_step <= 0 or done:
+            done = True
+        else:
+            done = False
 
         return self.state, reward, done, info
 
@@ -53,6 +64,10 @@ class MainEnvironment(gym.Env):
         self.done = False
 
     def assessment(self):
+        self.s_block_env.learn(True)
+        self.p_block_env.learn(True)
+        self.d_block_env.learn(True)
+        self.f_block_env.learn(True)
         s_knowledge = self.s_block_env.knowledge_space
         p_knowledge = self.p_block_env.knowledge_space
         d_knowledge = self.d_block_env.knowledge_space
@@ -61,7 +76,6 @@ class MainEnvironment(gym.Env):
         result_dict.update(p_knowledge)
         result_dict.update(d_knowledge)
         result_dict.update(f_knowledge)
-        # TODO add questions/simulation of learning
         return 1
 
     def knowledge2observational(self):

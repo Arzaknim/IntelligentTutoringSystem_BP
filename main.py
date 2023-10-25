@@ -1,6 +1,7 @@
 from MainEnvironment import MainEnvironment
 from PeriodicTable import PeriodicTable
 from Student import Student
+import operator
 
 if __name__ == '__main__':
     pt = PeriodicTable()
@@ -9,6 +10,7 @@ if __name__ == '__main__':
     env = MainEnvironment(pt, student)
 
     episodes = 100
+    episodes_dict = {}
     for episode in range(1, episodes + 1):
         state = env.reset()
         done = False
@@ -18,4 +20,8 @@ if __name__ == '__main__':
             action = env.action_space.sample()
             n_state, reward, done, info = env.step(action)
             score += reward
+        episodes_dict[episode] = score
         print('Episode:{} Score:{}'.format(episode, score))
+
+    episodes_dict = {k: v for k, v in sorted(episodes_dict.items(), key=lambda item: item[1])}
+    print(episodes_dict)

@@ -24,7 +24,7 @@ class BlockEnvironment(gym.Env):
         change = False
         # shows materials
         if action == 0:
-            self.learn()
+            self.learn(False)
         # tests student
         elif action == 1:
             self.test()
@@ -115,8 +115,12 @@ class BlockEnvironment(gym.Env):
 
         return state
 
-    def learn(self):
+    def learn(self, is_in_main):
         reward = 0
+        if is_in_main:
+            lr = self.student.learning_rate * self.learning_strength * self.learning_strength * 0.8
+        else:
+            lr = self.student.learning_rate * self.learning_strength * self.learning_strength
         if self.sim:
             for symbol in self.knowledge_space.keys():
                 rn = random.random()
@@ -128,7 +132,7 @@ class BlockEnvironment(gym.Env):
                         self.knowledge_space[symbol] = 1
                         reward += 1
                 else:
-                    if rn < self.student.learning_rate * self.learning_strength:
+                    if rn < lr:
                         self.knowledge_space[symbol] = 1
                         reward += 2
 
