@@ -2,6 +2,8 @@ import gymnasium as gym
 from gymnasium.spaces import Discrete
 import random
 
+from Question import Question
+
 
 class BlockEnvironment(gym.Env):
     def __init__(self, name, block_dict, student, learning_strength, sim=True):
@@ -24,22 +26,21 @@ class BlockEnvironment(gym.Env):
         change = False
         # shows materials
         if action == 0:
-            self.learn(False)
+            reward += self.learn(False)
         # tests student
         elif action == 1:
-            self.test()
+            reward += self.test()
         elif action == 2:
             change = True
         old_state = self.state
         self.state = self.knowledge2observational()
-        # Reduce shower length by 1 second
         self.time_step -= 1
 
         # Calculate reward
         diff = old_state - self.state
         if diff > 1:
             reward += 20 * diff
-        else:
+        elif diff < 1:
             reward -= 20 * diff
 
         # Check if study_session is done
@@ -62,6 +63,7 @@ class BlockEnvironment(gym.Env):
     def render(self):
         pass
 
+    # unused
     def set_random_knowledge(self):
         result = {}
         for symbol in self.gt.keys():
@@ -86,9 +88,9 @@ class BlockEnvironment(gym.Env):
             result = {}
             for symbol in self.gt.keys():
                 if random.random() < correct_rate:
-                    result[symbol] = 1
+                    result[symbol] = Question(1, 1, 1)
                 else:
-                    result[symbol] = 0
+                    result[symbol] = Question(0, 1, 0)
 
             self.knowledge_space = result
             knowledge_grade = self.knowledge2observational()
@@ -97,7 +99,7 @@ class BlockEnvironment(gym.Env):
         n_symbols = len(self.knowledge_space.keys())
         n_correct = 0
         for symbol in self.knowledge_space.keys():
-            if self.knowledge_space[symbol] == 1:
+            if self.knowledge_space[symbol].get_last_answer() == 1:
                 n_correct += 1
 
         percents = n_correct/n_symbols*100
@@ -124,19 +126,21 @@ class BlockEnvironment(gym.Env):
         if self.sim:
             for symbol in self.knowledge_space.keys():
                 rn = random.random()
-                if self.knowledge_space[symbol] == 1:
+                if self.knowledge_space[symbol].get_last_answer() == 1:
                     if rn < self.student.forgetting_rate:
-                        self.knowledge_space[symbol] = 0
-                        reward -= 2
+                        self.knowledge_space[symbol].update(0)
+                        reward -= 3
                     else:
-                        self.knowledge_space[symbol] = 1
+                        self.knowledge_space[symbol].update(1)
                         reward += 1
                 else:
                     if rn < lr:
-                        self.knowledge_space[symbol] = 1
-                        reward += 2
+                        self.knowledge_space[symbol].update(1)
+                        reward += 3
+        if not is_in_main:
+            print(f'Learning session of the {self.name} block')
 
-        print(f'Learning session of the {self.name} block')
+        return reward
 
     def test(self):
         lst = [x for x in self.knowledge_space.keys()]
@@ -147,19 +151,19 @@ class BlockEnvironment(gym.Env):
         reward = 0
         if self.sim:
             for symbol in lst:
-                if self.knowledge_space[symbol] == 0:
+                if self.knowledge_space[symbol].get_last_answer() == 0:
                     if random.random() < self.student.learning_rate:
-                        self.knowledge_space[symbol] = 1
+                        self.knowledge_space[symbol].update(1)
                         reward += 2
                     else:
-                        self.knowledge_space[symbol] = 0
+                        self.knowledge_space[symbol].update(0)
                         reward -= 2
                 else:
                     if random.random() < self.student.learning_rate:
-                        self.knowledge_space[symbol] = 1
+                        self.knowledge_space[symbol].update(1)
                         reward += 1
                     else:
-                        self.knowledge_space[symbol] = 0
+                        self.knowledge_space[symbol].update(0)
                         reward -= 3
 
         return reward

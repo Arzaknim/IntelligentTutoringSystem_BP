@@ -36,7 +36,8 @@ class MainEnvironment(gym.Env):
             n_state, reward, done, info = self.f_block_env.step(block_env_action)
         elif action == 4:
             old_state = self.state
-            self.state = self.assessment()
+            self.state, assessment_reward = self.assessment()
+            reward += assessment_reward
             if self.state > old_state:
                 reward += (self.state - old_state) * 50
             elif self.state < old_state:
@@ -61,22 +62,23 @@ class MainEnvironment(gym.Env):
         self.f_block_env = BlockEnvironment('F', self.pt.get_f_block_dct(),
                                             self.student, self.student.block_strength[3])
         self.time_step = 20
-        self.done = False
 
     def assessment(self):
-        self.s_block_env.learn(True)
-        self.p_block_env.learn(True)
-        self.d_block_env.learn(True)
-        self.f_block_env.learn(True)
-        s_knowledge = self.s_block_env.knowledge_space
-        p_knowledge = self.p_block_env.knowledge_space
-        d_knowledge = self.d_block_env.knowledge_space
-        f_knowledge = self.f_block_env.knowledge_space
-        result_dict = dict(s_knowledge)
-        result_dict.update(p_knowledge)
-        result_dict.update(d_knowledge)
-        result_dict.update(f_knowledge)
-        return 1
+        reward = 0
+        print("main environment assessment")
+        reward += self.s_block_env.learn(True)
+        reward += self.p_block_env.learn(True)
+        reward += self.d_block_env.learn(True)
+        reward += self.f_block_env.learn(True)
+        # s_knowledge = self.s_block_env.knowledge_space
+        # p_knowledge = self.p_block_env.knowledge_space
+        # d_knowledge = self.d_block_env.knowledge_space
+        # f_knowledge = self.f_block_env.knowledge_space
+        # result_dict = dict(s_knowledge)
+        # result_dict.update(p_knowledge)
+        # result_dict.update(d_knowledge)
+        # result_dict.update(f_knowledge)
+        return self.knowledge2observational(), reward
 
     def knowledge2observational(self):
         s_grade = self.s_block_env.knowledge2observational()
