@@ -43,6 +43,7 @@ class MainEnvironment(gym.Env):
         else:
             done = False
 
+        self.state = self.knowledge2observational()
         return self.state, reward, done, info
 
     def reset(self, seed=None, options=None):
@@ -51,6 +52,7 @@ class MainEnvironment(gym.Env):
         self.d_block_knowledge = self.set_block_knowledge(self.student.starting_mark, self.pt.get_d_block_dct())
         self.f_block_knowledge = self.set_block_knowledge(self.student.starting_mark, self.pt.get_f_block_dct())
         self.time_step = 10
+        return self.knowledge2observational(), 'info'
 
     def learn_block(self, name):
         reward = 0
@@ -84,18 +86,23 @@ class MainEnvironment(gym.Env):
         reward = 0
         lr = None
         knowledge_space = None
+        idx = None
         if name == 's':
             lr = self.student.learning_rate * self.student.block_strength[0]
             knowledge_space = self.s_block_knowledge
+            idx = 0
         elif name == 'p':
             lr = self.student.learning_rate * self.student.block_strength[1]
             knowledge_space = self.p_block_knowledge
+            idx = 1
         elif name == 'd':
             lr = self.student.learning_rate * self.student.block_strength[2]
             knowledge_space = self.d_block_knowledge
+            idx = 2
         elif name == 'f':
             lr = self.student.learning_rate * self.student.block_strength[3]
             knowledge_space = self.f_block_knowledge
+            idx = 3
         if self.sim:
             for symbol in knowledge_space.keys():
                 rn = random.random()
@@ -103,19 +110,25 @@ class MainEnvironment(gym.Env):
                     if rn < lr:
                         knowledge_space[symbol].update(1)
                         reward += 3
-        print(f'Learning session of the {name} block')
-        reward += self.forget(self.s_block_knowledge)
-        reward += self.forget(self.p_block_knowledge)
-        reward += self.forget(self.d_block_knowledge)
-        reward += self.forget(self.f_block_knowledge)
+            print(f'Learning session of the {name} block')
+
+        fr = self.student.forgetting_rate
+        if name != 's':
+            reward += self.forget(self.s_block_knowledge, fr)
+        if name != 'p':
+            reward += self.forget(self.p_block_knowledge, fr)
+        if name != 'd':
+            reward += self.forget(self.d_block_knowledge, fr)
+        if name != 'f':
+            reward += self.forget(self.f_block_knowledge, fr)
 
         return reward
 
     def assessment(self):
         reward = 0
-        print("main environment assessment, (testing real knowledge)")
+        print("main environment assessment")
         assessment_grade = self.knowledge2grade()
-        reward += (self.last_grade - assessment_grade) * 50
+        reward += (self.last_grade - assessment_grade) * 200
         self.last_grade = assessment_grade
         return reward
 
@@ -186,13 +199,13 @@ class MainEnvironment(gym.Env):
 
         return state
 
-    def forget(self, block_knowledge_space):
+    def forget(self, block_knowledge_space, fr):
         reward = 0
         for symbol in block_knowledge_space.keys():
             rn = random.random()
             if block_knowledge_space[symbol].get_last_answer() == 1:
-                if rn < self.student.forgetting_rate:
+                if rn < fr:
                     block_knowledge_space[symbol].update(0)
-                    reward -= 3
+                    reward -= 2
 
         return reward

@@ -1,11 +1,14 @@
+import torch
+
 from MainEnvironment import MainEnvironment
 from PeriodicTable import PeriodicTable
 from Student import Student
 
 if __name__ == '__main__':
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     pt = PeriodicTable()
-    block_strength = [1, 1, 1, 0.5]
-    student = Student(0.7, 0.1, 4, 1, block_strength)
+    block_strength = [1, 1, 0.2, 0.5]
+    student = Student(0.7, 0.10, 4, 1, block_strength)
     env = MainEnvironment(pt, student)
 
     episodes = 100
