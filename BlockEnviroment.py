@@ -1,5 +1,5 @@
 import gymnasium as gym
-from gymnasium.spaces import Discrete
+from gymnasium.spaces import Discrete, MultiDiscrete
 import random
 
 from Question import Question
@@ -13,7 +13,7 @@ class BlockEnvironment(gym.Env):
         # Actions we can take are show materials, test, quit
         self.action_space = Discrete(3)
         # Grade 1 to 5 (1 is best performance, 5 is worst performance)
-        self.observation_space = Discrete(5, start=1)
+        self.observation_space = MultiDiscrete([5, 5, 5, 5])
         self.gt = block_dict
         self.knowledge_space = {}
         self.set_graded_knowledge(student.starting_mark)

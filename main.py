@@ -5,7 +5,7 @@ from Student import Student
 if __name__ == '__main__':
     pt = PeriodicTable()
     block_strength = [1, 1, 1, 0.5]
-    student = Student(0.5, 0.5, 3, 1, block_strength)
+    student = Student(0.7, 0.1, 4, 1, block_strength)
     env = MainEnvironment(pt, student)
 
     episodes = 100
