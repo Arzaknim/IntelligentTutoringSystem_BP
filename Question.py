@@ -1,6 +1,6 @@
 class Question:
 
-    def __init__(self, last_answer, times_asked, times_correct):
+    def __init__(self, last_answer=0, times_asked=0, times_correct=0):
         self.last_answer = last_answer
         self.times_asked = times_asked
         self.times_correct = times_correct

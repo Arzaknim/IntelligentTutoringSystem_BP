@@ -7,20 +7,21 @@ from Question import Question
 
 class MainEnvironment(gym.Env):
 
-    def __init__(self, pt, student):
+    def __init__(self, pt, student, ts):
         self.sim = True
         self.pt = pt
         self.student = student
-        self.s_block_knowledge = self.set_block_knowledge(student.starting_mark, self.pt.get_s_block_dct())
-        self.p_block_knowledge = self.set_block_knowledge(student.starting_mark, self.pt.get_p_block_dct())
-        self.d_block_knowledge = self.set_block_knowledge(student.starting_mark, self.pt.get_d_block_dct())
-        self.f_block_knowledge = self.set_block_knowledge(student.starting_mark, self.pt.get_f_block_dct())
-        # study each block (4), test each block (4), assessment = 9
+        self.s_block_knowledge = self.set_block_knowledge(self.pt.get_s_block_dct())
+        self.p_block_knowledge = self.set_block_knowledge(self.pt.get_p_block_dct())
+        self.d_block_knowledge = self.set_block_knowledge(self.pt.get_d_block_dct())
+        self.f_block_knowledge = self.set_block_knowledge(self.pt.get_f_block_dct())
+        # study each block (4), !test each block (4)!, assessment = 9
         self.action_space = Discrete(5)
         self.observation_space = MultiDiscrete([5, 5, 5, 5])
-        self.state = self.knowledge2observational()
+        self.state = self.knowledge2state()
         self.last_grade = self.knowledge2grade()
-        self.time_step = 10
+        self.time_step = ts
+        self.orig_ts = ts
 
     def step(self, action):
         reward = 0
@@ -35,7 +36,7 @@ class MainEnvironment(gym.Env):
         elif action == 3:
             reward = self.learn('f')
         elif action == 4:
-            reward = self.assessment()
+            reward, done = self.assessment()
 
         self.time_step -= 1
         if self.time_step <= 0 or done:
@@ -43,16 +44,16 @@ class MainEnvironment(gym.Env):
         else:
             done = False
 
-        self.state = self.knowledge2observational()
+        self.state = self.knowledge2state()
         return self.state, reward, done, info
 
     def reset(self, seed=None, options=None):
-        self.s_block_knowledge = self.set_block_knowledge(self.student.starting_mark, self.pt.get_s_block_dct())
-        self.p_block_knowledge = self.set_block_knowledge(self.student.starting_mark, self.pt.get_p_block_dct())
-        self.d_block_knowledge = self.set_block_knowledge(self.student.starting_mark, self.pt.get_d_block_dct())
-        self.f_block_knowledge = self.set_block_knowledge(self.student.starting_mark, self.pt.get_f_block_dct())
-        self.time_step = 10
-        return self.knowledge2observational(), 'info'
+        self.s_block_knowledge = self.set_block_knowledge(self.pt.get_s_block_dct())
+        self.p_block_knowledge = self.set_block_knowledge(self.pt.get_p_block_dct())
+        self.d_block_knowledge = self.set_block_knowledge(self.pt.get_d_block_dct())
+        self.f_block_knowledge = self.set_block_knowledge(self.pt.get_f_block_dct())
+        self.time_step = self.orig_ts
+        return self.knowledge2state(), 'info'
 
     def learn_block(self, name):
         reward = 0
@@ -73,7 +74,7 @@ class MainEnvironment(gym.Env):
             idx = 3
 
         old_grade = self.state[idx]
-        new_grade = self.block_knowledge2observational(knowledge_space)
+        new_grade = self.block_knowledge2grade(knowledge_space)
         reward += (old_grade - new_grade) * 8
 
         self.state[idx] = new_grade
@@ -109,7 +110,7 @@ class MainEnvironment(gym.Env):
                 if knowledge_space[symbol].get_last_answer() == 0:
                     if rn < lr:
                         knowledge_space[symbol].update(1)
-                        reward += 3
+                        reward += 4 * (1 / knowledge_space[symbol].times_correct)
             print(f'Learning session of the {name} block')
 
         fr = self.student.forgetting_rate
@@ -129,55 +130,44 @@ class MainEnvironment(gym.Env):
         print("main environment assessment")
         assessment_grade = self.knowledge2grade()
         reward += (self.last_grade - assessment_grade) * 200
+        if assessment_grade == self.last_grade:
+            reward -= 10
         self.last_grade = assessment_grade
-        return reward
+        if self.last_grade == self.student.goal_mark:
+            done = True
+            reward += self.time_step/self.orig_ts*200
+        else:
+            done = False
+        return reward, done
 
     def knowledge2grade(self):
-        s_grade = self.block_knowledge2observational(self.s_block_knowledge)
-        p_grade = self.block_knowledge2observational(self.p_block_knowledge)
-        d_grade = self.block_knowledge2observational(self.d_block_knowledge)
-        f_grade = self.block_knowledge2observational(self.f_block_knowledge)
+        s_grade = self.block_knowledge2grade(self.s_block_knowledge)
+        p_grade = self.block_knowledge2grade(self.p_block_knowledge)
+        d_grade = self.block_knowledge2grade(self.d_block_knowledge)
+        f_grade = self.block_knowledge2grade(self.f_block_knowledge)
         result = (s_grade + p_grade + d_grade + f_grade) / 4
         return round(result)
 
-    def knowledge2observational(self):
-        s_grade = self.block_knowledge2observational(self.s_block_knowledge)
-        p_grade = self.block_knowledge2observational(self.p_block_knowledge)
-        d_grade = self.block_knowledge2observational(self.d_block_knowledge)
-        f_grade = self.block_knowledge2observational(self.f_block_knowledge)
+    def knowledge2state(self):
+        s_grade = self.block_knowledge2grade(self.s_block_knowledge)
+        p_grade = self.block_knowledge2grade(self.p_block_knowledge)
+        d_grade = self.block_knowledge2grade(self.d_block_knowledge)
+        f_grade = self.block_knowledge2grade(self.f_block_knowledge)
         return [s_grade, p_grade, d_grade, f_grade]
 
     def render(self):
         pass
 
-    def set_block_knowledge(self, grade, gt):
-        if grade == 1:
-            correct_rate = 0.95
-        elif grade == 2:
-            correct_rate = 0.85
-        elif grade == 3:
-            correct_rate = 0.65
-        elif grade == 4:
-            correct_rate = 0.375
-        else:
-            correct_rate = 0.125
+    def set_block_knowledge(self, gt):
+        result = {}
+        for symbol in gt.keys():
+            result[symbol] = Question()
 
-        knowledge_space = None
-        knowledge_grade = 0
-        while knowledge_grade != grade:
-            result = {}
-            for symbol in gt.keys():
-                if random.random() < correct_rate:
-                    result[symbol] = Question(1, 1, 1)
-                else:
-                    result[symbol] = Question(0, 1, 0)
-
-            knowledge_space = result
-            knowledge_grade = self.block_knowledge2observational(result)
+        knowledge_space = result
 
         return knowledge_space
 
-    def block_knowledge2observational(self, block_knowledge_space):
+    def block_knowledge2grade(self, block_knowledge_space):
         n_symbols = len(block_knowledge_space.keys())
         n_correct = 0
         for symbol in block_knowledge_space.keys():
@@ -204,8 +194,9 @@ class MainEnvironment(gym.Env):
         for symbol in block_knowledge_space.keys():
             rn = random.random()
             if block_knowledge_space[symbol].get_last_answer() == 1:
-                if rn < fr:
-                    block_knowledge_space[symbol].update(0)
+                if rn < fr * (2*block_knowledge_space[symbol].times_asked /
+                              block_knowledge_space[symbol].times_correct ** 2):
+                    block_knowledge_space[symbol].last_answer = 0
                     reward -= 2
 
         return reward
