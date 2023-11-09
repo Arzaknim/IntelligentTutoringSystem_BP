@@ -12,8 +12,10 @@ import fire
 from training_object import TrainingObject
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# sampled transitions
 BATCH_SIZE = 128
-GAMMA = 0.99
+# discount factor
+GAMMA = 0.9
 EPS_START = 0.9
 EPS_END = 0.05
 EPS_DECAY = 1000
@@ -90,9 +92,9 @@ def optimize_model(training_object):
 
 def run(train):
     pt = PeriodicTable()
-    block_strength = [1, 0.9, 0.7, 0.8]
-    student = Student(0.7, 0.07, 2, block_strength)
-    env = MainEnvironment(pt, student, 20)
+    block_strength = [1, 1, 1, 1]
+    student = Student(0.7, 0.05, 1, block_strength)
+    env = MainEnvironment(pt, student, 40)
 
     # Get number of actions from gym action space
     n_actions = env.action_space.n
@@ -105,8 +107,8 @@ def run(train):
     if train:
         target_net.load_state_dict(policy_net.state_dict())
     else:
-        target_net.load_state_dict(torch.load('model.pth'))
-        policy_net.load_state_dict(torch.load('model.pth'))
+        target_net.load_state_dict(torch.load('model1.pth'))
+        policy_net.load_state_dict(torch.load('model1.pth'))
 
     optimizer = optim.AdamW(policy_net.parameters(), lr=LR, amsgrad=True)
     memory = ReplayMemory(10000)
@@ -121,9 +123,11 @@ def run(train):
         # Initialize the environment and get it's state
         state, info = env.reset()
         state = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
+        score = 0
         while state is not None:
             action = select_action(state, policy_net, env)
             observation, reward, terminated, _ = env.step(action.item())
+            score += reward
             if train:
                 reward = torch.tensor([reward], device=device)
             done = terminated
@@ -153,7 +157,7 @@ def run(train):
                                 1 - TAU)
                 target_net.load_state_dict(target_net_state_dict)
 
-        print(f'Episode {i_episode}')
+        print(f'Episode {i_episode}: {score}')
     if train:
         torch.save(target_net.state_dict(), 'model1.pth')
 

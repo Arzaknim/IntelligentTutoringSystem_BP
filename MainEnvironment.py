@@ -27,14 +27,31 @@ class MainEnvironment(gym.Env):
         reward = 0
         info = ""
         done = False
+        # learn the whole s block
         if action == 0:
-            reward = self.learn('s')
+            reward = self.learn('s', False)
+        # learn the whole p block
         elif action == 1:
-            reward = self.learn('p')
+            reward = self.learn('p', False)
+        # learn the whole d block
         elif action == 2:
-            reward = self.learn('d')
+            reward = self.learn('d', False)
+        # learn the whole f block
         elif action == 3:
-            reward = self.learn('f')
+            reward = self.learn('f', False)
+        # # learn the 5 most difficult of elements in the s block
+        # elif action == 4:
+        #     reward = self.learn('s', True)
+        # # learn the 5 most difficult of elements in the p block
+        # elif action == 5:
+        #     reward = self.learn('p', True)
+        # # learn the 5 most difficult of elements in the d block
+        # elif action == 6:
+        #     reward = self.learn('d', True)
+        # # learn the 5 most difficult of elements in the f block
+        # elif action == 7:
+        #     reward = self.learn('f', True)
+        # test the whole periodic table
         elif action == 4:
             reward, done = self.assessment()
 
@@ -55,35 +72,7 @@ class MainEnvironment(gym.Env):
         self.time_step = self.orig_ts
         return self.knowledge2state(), 'info'
 
-    def learn_block(self, name):
-        reward = 0
-        reward += self.learn(name)
-        knowledge_space = None
-        idx = None
-        if name == 's':
-            knowledge_space = self.s_block_knowledge
-            idx = 0
-        elif name == 'p':
-            knowledge_space = self.p_block_knowledge
-            idx = 1
-        elif name == 'd':
-            knowledge_space = self.d_block_knowledge
-            idx = 2
-        elif name == 'f':
-            knowledge_space = self.f_block_knowledge
-            idx = 3
-
-        old_grade = self.state[idx]
-        new_grade = self.block_knowledge2grade(knowledge_space)
-        reward += (old_grade - new_grade) * 8
-
-        self.state[idx] = new_grade
-        info = {}
-
-        # Return step information
-        return reward
-
-    def learn(self, name):
+    def learn(self, name, specific):
         reward = 0
         lr = None
         knowledge_space = None
@@ -105,13 +94,49 @@ class MainEnvironment(gym.Env):
             knowledge_space = self.f_block_knowledge
             idx = 3
         if self.sim:
-            for symbol in knowledge_space.keys():
-                rn = random.random()
-                if knowledge_space[symbol].get_last_answer() == 0:
-                    if rn < lr:
+            if not specific:
+                print(f'Learning session of the {name} block')
+                for symbol in knowledge_space.keys():
+                    rn = random.random()
+                    if knowledge_space[symbol].get_last_answer() == 0:
+                        if rn < lr:
+                            knowledge_space[symbol].update(1)
+                            #
+                            reward += 4 / knowledge_space[symbol].times_correct
+                        else:
+                            knowledge_space[symbol].update(0)
+                            # reward -= knowledge_space[symbol].times_asked
+                    else:
                         knowledge_space[symbol].update(1)
-                        reward += 4 * (1 / knowledge_space[symbol].times_correct)
-            print(f'Learning session of the {name} block')
+            else:
+                print(f'Specific learning session of the {name} block')
+                division_by_zero = False
+                for symbol in knowledge_space.keys():
+                    if knowledge_space[symbol].get_times_asked() == 0:
+                        division_by_zero = True
+                        break
+                if not division_by_zero:
+                    lst = []
+                    for symbol in knowledge_space.keys():
+                        lst.append((symbol, knowledge_space[symbol].get_times_correct() / knowledge_space[symbol].get_times_asked()))
+                    lst = sorted(lst, key=lambda x: x[1])
+                    for i in range(5):
+                        symbol = lst[i][0]
+                        rn = random.random()
+                        if knowledge_space[symbol].get_last_answer() == 0:
+                            if rn < lr * 1.5:
+                                knowledge_space[symbol].update(1)
+                                #
+                                reward += 4 * (1 / knowledge_space[symbol].times_correct) * 10
+                            else:
+                                knowledge_space[symbol].update(0)
+                                # reward -= knowledge_space[symbol].times_asked
+                        else:
+                            knowledge_space[symbol].update(1)
+                            reward += 0.5
+
+                else:
+                    reward -= 25
 
         fr = self.student.forgetting_rate
         if name != 's':
@@ -129,13 +154,12 @@ class MainEnvironment(gym.Env):
         reward = 0
         print("main environment assessment")
         assessment_grade = self.knowledge2grade()
-        reward += (self.last_grade - assessment_grade) * 200
-        if assessment_grade == self.last_grade:
-            reward -= 10
+        if self.last_grade - assessment_grade > 0:
+            reward += (self.last_grade - assessment_grade) * 2500
         self.last_grade = assessment_grade
-        if self.last_grade == self.student.goal_mark:
+        if self.last_grade <= self.student.goal_mark:
             done = True
-            reward += self.time_step/self.orig_ts*200
+            reward += self.time_step*20000/self.orig_ts
         else:
             done = False
         return reward, done
@@ -194,6 +218,7 @@ class MainEnvironment(gym.Env):
         for symbol in block_knowledge_space.keys():
             rn = random.random()
             if block_knowledge_space[symbol].get_last_answer() == 1:
+                # 2x*(y**2)
                 if rn < fr * (2*block_knowledge_space[symbol].times_asked /
                               block_knowledge_space[symbol].times_correct ** 2):
                     block_knowledge_space[symbol].last_answer = 0
