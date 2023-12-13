@@ -93,8 +93,8 @@ def optimize_model(training_object):
 
 def run(train):
     pt = PeriodicTable()
-    block_strength = [1, 1, 1, 1]
-    student = Student(0.7, 0.03, 3, block_strength)
+    block_strength = [1, 0.7, 1, 1]
+    student = Student(0.7, 0.03, 1, block_strength)
     env = MainEnvironment(pt, student, 40)
 
     # Get number of actions from gym action space
