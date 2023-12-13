@@ -15,11 +15,11 @@ class MainEnvironment(gym.Env):
         self.p_block_knowledge = self.set_block_knowledge(self.pt.get_p_block_dct())
         self.d_block_knowledge = self.set_block_knowledge(self.pt.get_d_block_dct())
         self.f_block_knowledge = self.set_block_knowledge(self.pt.get_f_block_dct())
-        # study each block (4), !test each block (4)!, assessment = 9
+        # study each block (4), !test each block (4)!, assessment = 5
         self.action_space = Discrete(5)
         self.observation_space = MultiDiscrete([5, 5, 5, 5])
-        self.state = self.knowledge2state()
-        self.last_grade = self.knowledge2grade()
+        self.state = self.knowledge2state() + self.student.goal_mark
+        self.last_grade = self.grade2onehot(self.knowledge2grade())
         self.time_step = ts
         self.orig_ts = ts
 
@@ -61,7 +61,7 @@ class MainEnvironment(gym.Env):
         else:
             done = False
 
-        self.state = self.knowledge2state()
+        self.state = self.knowledge2state() + self.student.goal_mark
         return self.state, reward, done, info
 
     def reset(self, seed=None, options=None):
@@ -70,7 +70,7 @@ class MainEnvironment(gym.Env):
         self.d_block_knowledge = self.set_block_knowledge(self.pt.get_d_block_dct())
         self.f_block_knowledge = self.set_block_knowledge(self.pt.get_f_block_dct())
         self.time_step = self.orig_ts
-        return self.knowledge2state(), 'info'
+        return self.knowledge2state() + self.student.goal_mark, 'info'
 
     def learn(self, name, specific):
         reward = 0
@@ -153,11 +153,12 @@ class MainEnvironment(gym.Env):
     def assessment(self):
         reward = 0
         print("main environment assessment")
-        assessment_grade = self.knowledge2grade()
-        if self.last_grade - assessment_grade > 0:
-            reward += (self.last_grade - assessment_grade) * 2500
+        assessment_grade = self.grade2onehot(self.knowledge2grade())
+        diff = self.last_grade.index(1) - assessment_grade.index(1)
+        if diff > 0:
+            reward += diff * 500
         self.last_grade = assessment_grade
-        if self.last_grade <= self.student.goal_mark:
+        if self.last_grade.index(1) <= self.student.goal_mark.index(1):
             done = True
             reward += self.time_step*20000/self.orig_ts
         else:
@@ -225,3 +226,6 @@ class MainEnvironment(gym.Env):
                     reward -= 2
 
         return reward
+
+    def grade2onehot(self, grade):
+        return [1 if x + 1 == grade else 0 for x in range(5)]

@@ -8,6 +8,7 @@ from Qnet import DQN
 from ReplayMemory import ReplayMemory, Transition
 from Student import Student
 import fire
+import os
 
 from training_object import TrainingObject
 
@@ -93,7 +94,7 @@ def optimize_model(training_object):
 def run(train):
     pt = PeriodicTable()
     block_strength = [1, 1, 1, 1]
-    student = Student(0.7, 0.05, 1, block_strength)
+    student = Student(0.7, 0.03, 3, block_strength)
     env = MainEnvironment(pt, student, 40)
 
     # Get number of actions from gym action space
@@ -104,11 +105,12 @@ def run(train):
 
     policy_net = DQN(n_observations, n_actions).to(device)
     target_net = DQN(n_observations, n_actions).to(device)
-    if train:
+    valid_file = os.path.exists('qnet_w.pth')
+    if not valid_file:
         target_net.load_state_dict(policy_net.state_dict())
     else:
-        target_net.load_state_dict(torch.load('model1.pth'))
-        policy_net.load_state_dict(torch.load('model1.pth'))
+        target_net.load_state_dict(torch.load('qnet_w.pth'))
+        policy_net.load_state_dict(torch.load('qnet_w.pth'))
 
     optimizer = optim.AdamW(policy_net.parameters(), lr=LR, amsgrad=True)
     memory = ReplayMemory(10000)
@@ -128,8 +130,7 @@ def run(train):
             action = select_action(state, policy_net, env)
             observation, reward, terminated, _ = env.step(action.item())
             score += reward
-            if train:
-                reward = torch.tensor([reward], device=device)
+            reward = torch.tensor([reward], device=device)
             done = terminated
 
             if terminated:
@@ -137,29 +138,27 @@ def run(train):
             else:
                 next_state = torch.tensor(observation, dtype=torch.float32, device=device).unsqueeze(0)
 
-            if train:
-                # Store the transition in memory
-                memory.push(state, action, next_state, reward)
+            # Store the transition in memory
+            memory.push(state, action, next_state, reward)
 
             # Move to the next state
             state = next_state
 
             # Perform one step of the optimization (on the policy network)
-            if train:
-                optimize_model(training_object)
+            optimize_model(training_object)
 
-                # Soft update of the target network's weights
-                # θ′ ← τ θ + (1 −τ )θ′
-                target_net_state_dict = target_net.state_dict()
-                policy_net_state_dict = policy_net.state_dict()
-                for key in policy_net_state_dict:
-                    target_net_state_dict[key] = policy_net_state_dict[key] * TAU + target_net_state_dict[key] * (
-                                1 - TAU)
-                target_net.load_state_dict(target_net_state_dict)
+            # Soft update of the target network's weights
+            # θ′ ← τ θ + (1 −τ )θ′
+            target_net_state_dict = target_net.state_dict()
+            policy_net_state_dict = policy_net.state_dict()
+            for key in policy_net_state_dict:
+                target_net_state_dict[key] = policy_net_state_dict[key] * TAU + target_net_state_dict[key] * (
+                        1 - TAU)
+            target_net.load_state_dict(target_net_state_dict)
 
         print(f'Episode {i_episode}: {score}')
     if train:
-        torch.save(target_net.state_dict(), 'model1.pth')
+        torch.save(target_net.state_dict(), 'qnet_w.pth')
 
 
 if __name__ == '__main__':
