@@ -1,5 +1,7 @@
 import math
 import random
+
+import numpy as np
 import torch
 from torch import optim, nn
 from MainEnvironment import MainEnvironment
@@ -7,29 +9,39 @@ from PeriodicTable import PeriodicTable
 from Qnet import DQN
 from ReplayMemory import ReplayMemory, Transition
 from Student import Student
+import matplotlib.pyplot as plt
 import fire
 import os
+from datetime import date, datetime
 
 from training_object import TrainingObject
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# sampled transitions
+# BATCH_SIZE is the number of transitions sampled from the replay buffer
+# GAMMA is the discount factor as mentioned in the previous section
+# EPS_START is the starting value of epsilon
+# EPS_END is the final value of epsilon
+# EPS_DECAY controls the rate of exponential decay of epsilon, higher means a slower decay
+# TAU is the update rate of the target network
+# LR is the learning rate of the ``AdamW`` optimizer
 BATCH_SIZE = 128
-# discount factor
-GAMMA = 0.9
+GAMMA = 0.999
 EPS_START = 0.9
 EPS_END = 0.05
-EPS_DECAY = 1000
+EPS_DECAY = 100000  # 16000
 TAU = 0.005
 LR = 1e-4
 steps_done = 0
+eps = None
 
 
 def select_action(state, policy_net, env):
     global steps_done
+    global eps
     sample = random.random()
-    eps_threshold = EPS_END + (EPS_START - EPS_END) * \
-                    math.exp(-1. * steps_done / EPS_DECAY)
+    eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * steps_done / EPS_DECAY)
+    eps = eps_threshold
+    print(eps)
     steps_done += 1
     if sample > eps_threshold:
         with torch.no_grad():
@@ -117,10 +129,12 @@ def run(train):
     training_object = TrainingObject(memory, target_net, policy_net, optimizer)
 
     if torch.cuda.is_available():
-        num_episodes = 200
+        num_episodes = 100  # 2000
     else:
         num_episodes = 50
-
+    ts_list = []
+    score_list = []
+    eps_list = []
     for i_episode in range(num_episodes):
         # Initialize the environment and get it's state
         state, info = env.reset()
@@ -128,13 +142,15 @@ def run(train):
         score = 0
         while state is not None:
             action = select_action(state, policy_net, env)
-            observation, reward, terminated, _ = env.step(action.item())
+            observation, reward, terminated, ts = env.step(action.item())
             score += reward
             reward = torch.tensor([reward], device=device)
             done = terminated
 
             if terminated:
                 next_state = None
+                ts_list.append(ts)
+                score_list.append(score)
             else:
                 next_state = torch.tensor(observation, dtype=torch.float32, device=device).unsqueeze(0)
 
@@ -157,8 +173,39 @@ def run(train):
             target_net.load_state_dict(target_net_state_dict)
 
         print(f'Episode {i_episode}: {score}')
+    time = str(datetime.now()).split()
+    time[1] = time[1].split('.')[0].replace(':', '-')
+    time = time[0] + '_' + time[1]
+    print(f'qnet_w_{time}.pth')
     if train:
-        torch.save(target_net.state_dict(), 'qnet_w.pth')
+        torch.save(target_net.state_dict(), f'training_files/qnet_w_{time}.pth')
+
+    mean_ts = []
+    mean_score = []
+    mean_from = 50
+    for i in range(0, num_episodes, mean_from):
+        temp_ts = 0
+        temp_score = 0
+        for j in range(mean_from):
+            temp_ts += ts_list[i + j]
+            temp_score += score_list[i + j]
+        mean_ts.append(temp_ts / mean_from)
+        mean_score.append(temp_score / mean_from)
+
+    x_axis = np.linspace(1, num_episodes, num_episodes)
+    x_axis_mean = np.linspace(1, num_episodes, int(num_episodes/mean_from))
+    plt.title('Timestep graph')
+    plt.plot(x_axis, np.array(ts_list))
+    plt.plot(x_axis_mean, mean_ts, color='red')
+    plt.xlabel('Episodes')
+    plt.ylabel('Timestep')
+    plt.savefig(f'training_files/timestep_{time}.jpg')
+    plt.title('Score graph')
+    plt.plot(x_axis, np.array(score_list))
+    plt.plot(x_axis_mean, mean_score, color='red')
+    plt.xlabel('Episodes')
+    plt.ylabel('Score')
+    plt.savefig(f'training_files/score_{time}.jpg')
 
 
 if __name__ == '__main__':

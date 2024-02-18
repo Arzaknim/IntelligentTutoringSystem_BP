@@ -60,7 +60,7 @@ class MainEnvironment(gym.Env):
             done = False
 
         self.state = self.knowledge2state() + self.student.goal_mark
-        return self.state, reward, done, info
+        return self.state, reward, done, self.orig_ts - self.time_step
 
     def reset(self, seed=None, options=None):
         self.s_block_knowledge = set_block_knowledge(self.pt.get_s_block_dct())
@@ -154,7 +154,7 @@ class MainEnvironment(gym.Env):
         assessment_grade = grade2onehot(self.knowledge2grade())
         diff = self.last_grade.index(1) - assessment_grade.index(1)
         if diff > 0:
-            reward += diff * 500
+            reward += diff * 2000
         else:
             reward += -200
         self.last_grade = assessment_grade
